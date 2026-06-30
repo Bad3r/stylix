@@ -237,11 +237,24 @@
     githubId = 63157919;
     name = "Alexander";
   };
+  saadndm = {
+    email = "saad29nadeem@gmail.com";
+    github = "saadndm";
+    githubId = 88615188;
+    name = "Saad Nadeem";
+  };
   skiletro = {
     email = "git@skilet.ro";
     github = "skiletro";
     githubId = 19377854;
     name = "jamie";
+  };
+  thbemme = {
+    email = "thomas.bemme@googlemail.com";
+    github = "thbemme";
+    githubId = 14074615;
+    matrix = "@riza:chaos.jetzt";
+    name = "Thomas Bemme";
   };
   trueNAHO = {
     email = "nix@noahbiewesch.com";
