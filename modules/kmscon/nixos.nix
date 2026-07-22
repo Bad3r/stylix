@@ -9,6 +9,7 @@ let
 in
 mkTarget {
   config = [
+<<<<<<< HEAD
     (
       { fonts }:
       if hasConfigOption then
@@ -28,6 +29,24 @@ mkTarget {
           };
         }
     )
+||||||| c8ccc31
+    (
+      { fonts }:
+      {
+        services.kmscon.config = {
+          font-name = fonts.monospace.name;
+          font-size = fonts.sizes.terminal;
+        };
+      }
+    )
+=======
+    ({ fonts }: {
+      services.kmscon.config = {
+        font-name = fonts.monospace.name;
+        font-size = fonts.sizes.terminal;
+      };
+    })
+>>>>>>> 66714e5ce44269ecc58c20d9196da8dbe1b27a31
     (
       { colors }:
       let
