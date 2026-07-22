@@ -1,52 +1,17 @@
-{
-  mkTarget,
-  lib,
-  options,
-  ...
-}:
-let
-  hasConfigOption = options ? services.kmscon.config;
-in
+{ mkTarget, ... }:
 mkTarget {
   config = [
-<<<<<<< HEAD
-    (
-      { fonts }:
-      if hasConfigOption then
-        {
-          fonts.fontconfig.enable = true;
-          fonts.packages = [ fonts.monospace.package ];
-          services.kmscon.config = {
-            font-name = fonts.monospace.name;
-            font-size = toString fonts.sizes.terminal;
-          };
-        }
-      else
-        {
-          services.kmscon = {
-            fonts = [ fonts.monospace ];
-            extraConfig = "font-size=${toString fonts.sizes.terminal}";
-          };
-        }
-    )
-||||||| c8ccc31
     (
       { fonts }:
       {
+        fonts.fontconfig.enable = true;
+        fonts.packages = [ fonts.monospace.package ];
         services.kmscon.config = {
           font-name = fonts.monospace.name;
           font-size = fonts.sizes.terminal;
         };
       }
     )
-=======
-    ({ fonts }: {
-      services.kmscon.config = {
-        font-name = fonts.monospace.name;
-        font-size = fonts.sizes.terminal;
-      };
-    })
->>>>>>> 66714e5ce44269ecc58c20d9196da8dbe1b27a31
     (
       { colors }:
       let
@@ -79,10 +44,7 @@ mkTarget {
           palette-foreground = formatBase "base05";
         };
       in
-      if hasConfigOption then
-        { services.kmscon.config = palette; }
-      else
-        { services.kmscon.extraConfig = lib.generators.toKeyValue { } palette; }
+      { services.kmscon.config = palette; }
     )
   ];
 }

@@ -99,10 +99,13 @@ mkTarget {
         ];
       }
     )
-    ({ polarity }: {
-      stylix.targets.qt.recommendedStyles.gnome =
-        if polarity == "dark" then "adwaita-dark" else "adwaita";
-    })
+    (
+      { polarity }:
+      {
+        stylix.targets.qt.recommendedStyles.gnome =
+          if polarity == "dark" then "adwaita-dark" else "adwaita";
+      }
+    )
     (
       { colors }:
       let
@@ -132,7 +135,6 @@ mkTarget {
         };
       }
     )
-<<<<<<< HEAD
     (
       { icons, polarity }:
       let
@@ -141,28 +143,7 @@ mkTarget {
       {
         qt = qtctSettings {
           Appearance.icon_theme = lib.mkIf (iconTheme != null) iconTheme;
-||||||| c8ccc31
-    (
-      { icons, polarity }:
-      {
-        qt = qtctSettings {
-          Appearance.icon_theme =
-            if (polarity == "dark") then icons.dark else icons.light;
-=======
-    ({ icons, polarity }: {
-      qt = qtctSettings {
-        Appearance.icon_theme =
-          if (polarity == "dark") then icons.dark else icons.light;
-      };
-    })
-    ({ fonts }: {
-      qt = qtctSettings {
-        Fonts = {
-          fixed = ''"${fonts.monospace.name},${toString fonts.sizes.applications}"'';
-          general = ''"${fonts.sansSerif.name},${toString fonts.sizes.applications}"'';
->>>>>>> 66714e5ce44269ecc58c20d9196da8dbe1b27a31
         };
-<<<<<<< HEAD
       }
     )
     (
@@ -284,23 +265,5 @@ mkTarget {
         };
       }
     )
-||||||| c8ccc31
-      }
-    )
-    (
-      { fonts }:
-      {
-        qt = qtctSettings {
-          Fonts = {
-            fixed = ''"${fonts.monospace.name},${toString fonts.sizes.applications}"'';
-            general = ''"${fonts.sansSerif.name},${toString fonts.sizes.applications}"'';
-          };
-        };
-      }
-    )
-=======
-      };
-    })
->>>>>>> 66714e5ce44269ecc58c20d9196da8dbe1b27a31
   ];
 }
