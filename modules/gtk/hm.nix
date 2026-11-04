@@ -20,6 +20,21 @@ mkTarget {
       '';
     };
 
+    gtk4.extraCss = lib.mkOption {
+      description = ''
+        Extra code added to `gtk-4.0/gtk.css` only, after
+        `stylix.targets.gtk.extraCss`.
+
+        Use this for syntax GTK 3 rejects, such as CSS custom properties.
+      '';
+      type = lib.types.lines;
+      default = "";
+      example = ''
+        /* Override the libadwaita accent */
+        :root { --accent-bg-color: #3584e4; }
+      '';
+    };
+
     flatpakSupport.enable = config.lib.stylix.mkEnableTarget "support for theming Flatpak apps" true;
   };
 
@@ -27,7 +42,7 @@ mkTarget {
     {
       warnings =
         lib.optional (config.gtk.gtk3.extraCss != "" || config.gtk.gtk4.extraCss != "")
-          "stylix: `gtk.gtk3.extraCss` and `gtk.gtk4.extraCss` have no effect. Use `stylix.targets.gtk.extraCss` instead.";
+          "stylix: `gtk.gtk3.extraCss` and `gtk.gtk4.extraCss` have no effect. Use `stylix.targets.gtk.extraCss` or `stylix.targets.gtk.gtk4.extraCss` instead.";
 
       # programs.dconf.enable = true; required in system config
       gtk.enable = true;
@@ -51,6 +66,15 @@ mkTarget {
           cat ${baseCss} >>$out
           echo ${lib.escapeShellArg cfg.extraCss} >>$out
         '';
+
+        gtk4Css =
+          if cfg.gtk4.extraCss == "" then
+            finalCss
+          else
+            pkgs.runCommandLocal "gtk.css" { } ''
+              cat ${finalCss} >>$out
+              echo ${lib.escapeShellArg cfg.gtk4.extraCss} >>$out
+            '';
       in
       lib.mkMerge [
         {
@@ -62,7 +86,7 @@ mkTarget {
 
           xdg.configFile = {
             "gtk-3.0/gtk.css".source = finalCss;
-            "gtk-4.0/gtk.css".source = finalCss;
+            "gtk-4.0/gtk.css".source = gtk4Css;
           };
         }
         (lib.mkIf cfg.flatpakSupport.enable (
@@ -77,7 +101,8 @@ mkTarget {
 
                     installPhase = ''
                       cp --recursive . $out
-                      cat ${finalCss} | tee --append $out/gtk-{3,4}.0/gtk.css
+                      cat ${finalCss} >>$out/gtk-3.0/gtk.css
+                      cat ${gtk4Css} >>$out/gtk-4.0/gtk.css
                     '';
                   };
             }
