@@ -11,6 +11,78 @@ let
     qt5ctSettings = lib.mkIf (config.qt.platformTheme.name == "qtct") attrs;
     qt6ctSettings = lib.mkIf (config.qt.platformTheme.name == "qtct") attrs;
   };
+
+  # Light, Midlight, Mid, and Dark derived from Button (base02) as
+  # QPalette(button, window) does, so the shade ramp hugs Button on any
+  # scheme instead of jumping to the base03/base04 foreground tones.
+  # Ports QColor::lighter/darker (16-bit HSV round trip) and
+  # qt_mix_colors, so the values match Qt's own derivation.
+  qtShades =
+    colors:
+    let
+      round = x: builtins.floor (x + 0.5);
+      toUnit = c: c * 257 / 65535.0;
+      toByte = word: round (word / 257.0);
+      button = map (c: lib.toInt colors."base02-rgb-${c}") (
+        lib.stringToCharacters "rgb"
+      );
+
+      scale =
+        scaleValue: rgb:
+        let
+          channels = map toUnit rgb;
+          r = builtins.elemAt channels 0;
+          g = builtins.elemAt channels 1;
+          b = builtins.elemAt channels 2;
+          max = lib.foldl' lib.max 0.0 channels;
+          delta = max - lib.foldl' lib.min 1.0 channels;
+          hueSector =
+            if r == max then
+              (g - b) / delta
+            else if g == max then
+              2 + (b - r) / delta
+            else
+              4 + (r - g) / delta;
+          hueDegrees = hueSector * 60;
+          hue = round ((if hueDegrees < 0 then hueDegrees + 360 else hueDegrees) * 100);
+          saturation = round (delta / max * 65535);
+          scaled = scaleValue (round (max * 65535));
+          s = lib.max 0 (saturation - lib.max 0 (scaled - 65535)) / 65535.0;
+          value = lib.min scaled 65535;
+          v = value / 65535.0;
+          h = if hue == 36000 then 0.0 else hue / 6000.0;
+          i = builtins.floor h;
+          f = h - i;
+          components = {
+            inherit v;
+            p = v * (1 - s);
+            q = v * (1 - s * f);
+            t = v * (1 - s * (1 - f));
+          };
+        in
+        if delta == 0 || s == 0 then
+          lib.replicate 3 (toByte value)
+        else
+          map (n: toByte (round (components.${n} * 65535))) (
+            lib.stringToCharacters (builtins.substring (i * 3) 3 "vtpqvppvtpqvtpvvpq")
+          );
+
+      lighter = factor: scale (v: factor * v / 100);
+      darker = factor: scale (v: v * 100 / factor);
+      toHex =
+        rgb:
+        "#"
+        + lib.concatMapStrings (
+          c: lib.fixedWidthString 2 "0" (lib.toLower (lib.toHexString c))
+        ) rgb;
+      light = lighter 150 button;
+    in
+    lib.mapAttrs (_: toHex) {
+      inherit light;
+      midlight = lib.zipListsWith (a: b: (a + b) / 2) button light;
+      mid = darker 150 button;
+      dark = darker 200 button;
+    };
 in
 mkTarget {
   # TODO: Replace `nixosConfig != null` with
@@ -123,7 +195,12 @@ mkTarget {
           pkgs.runCommandLocal "base16-kvantum" { } ''
             directory="$out/share/Kvantum/Base16Kvantum"
             mkdir --parents "$directory"
-            cp ${kvconfig} "$directory/Base16Kvantum.kvconfig"
+            substitute ${kvconfig} "$directory/Base16Kvantum.kvconfig" \
+              ${lib.concatStringsSep " " (
+                lib.mapAttrsToList (
+                  name: value: "--replace-fail @${name}@ ${lib.escapeShellArg value}"
+                ) (qtShades colors)
+              )}
             cp ${svg} "$directory/Base16Kvantum.svg"
           '';
       in
@@ -158,40 +235,30 @@ mkTarget {
       }
     )
     (
-      { colors, polarity }:
+      { colors }:
       let
         palette = colors.withHashtag;
-
-        # Base16 inverts base00..base07 luminance between dark and light
-        # themes, so the Light/Midlight/Dark/Mid/Shadow shade ramp around
-        # Button (base02) has to flip on light schemes or Fusion bevels
-        # render upside-down. Users on the default `either` polarity get
-        # the dark ramp, since most generator outputs end up dark.
-        isDark = polarity != "light";
-        shadeDark = if isDark then palette.base00 else palette.base04;
-        shadeMid = if isDark then palette.base01 else palette.base03;
-        shadeMidlight = if isDark then palette.base03 else palette.base01;
-        shadeLight = if isDark then palette.base04 else palette.base00;
+        shades = qtShades colors;
 
         # QPalette::ColorRole order 0..20. qt6ct's parser iterates the
         # enum directly. Accent (21, Qt 6.6+) is auto-filled from
         # Highlight by qt6ct when the row has 21 entries, so omitting it
         # is forward-compatible. Roles overlapping kvconfig.mustache use
-        # the same Base16 slot to keep mixed Kvantum + QtQuick UIs
+        # the same value to keep mixed Kvantum + QtQuick UIs
         # visually consistent.
         activePaletteRoles = [
           palette.base05 # 0  WindowText      (kvconfig: window.text.color)
           palette.base02 # 1  Button          (kvconfig: button.color)
-          shadeLight # 2  Light
-          shadeMidlight # 3  Midlight
-          shadeDark # 4  Dark
-          shadeMid # 5  Mid
+          shades.light # 2  Light
+          shades.midlight # 3  Midlight
+          shades.dark # 4  Dark
+          shades.mid # 5  Mid
           palette.base05 # 6  Text            (kvconfig: text.color)
           palette.base07 # 7  BrightText      (Qt high-contrast Text fallback)
           palette.base05 # 8  ButtonText      (kvconfig: button.text.color)
           palette.base00 # 9  Base            (kvconfig: base.color)
           palette.base01 # 10 Window          (kvconfig: window.color)
-          shadeDark # 11 Shadow
+          shades.dark # 11 Shadow
           palette.base0E # 12 Highlight       (kvconfig: highlight.color)
           # HighlightedText diverges from kvconfig.mustache (base00):
           # on schemes where Highlight (base0E) and Window (base01)
@@ -222,16 +289,16 @@ mkTarget {
         disabledPaletteRoles = [
           palette.base04 # 0  WindowText
           palette.base02 # 1  Button
-          shadeLight # 2  Light
-          shadeMidlight # 3  Midlight
-          shadeDark # 4  Dark
-          shadeMid # 5  Mid
+          shades.light # 2  Light
+          shades.midlight # 3  Midlight
+          shades.dark # 4  Dark
+          shades.mid # 5  Mid
           palette.base04 # 6  Text
           palette.base04 # 7  BrightText
           palette.base04 # 8  ButtonText
           palette.base00 # 9  Base
           palette.base01 # 10 Window
-          shadeDark # 11 Shadow
+          shades.dark # 11 Shadow
           palette.base02 # 12 Highlight
           palette.base04 # 13 HighlightedText
           palette.base04 # 14 Link
